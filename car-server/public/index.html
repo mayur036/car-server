@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Remote</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ps: { dark: '#1a1a2e', body: '#e8e8ec', accent: '#0072ce', grip: '#2d2d3f', light: '#f0f0f4' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+
+    .controller {
+      background: linear-gradient(145deg, #f0f0f4 0%, #e0e0e6 40%, #d0d0d8 100%);
+      box-shadow:
+        0 30px 60px rgba(0,0,0,0.4),
+        0 10px 20px rgba(0,0,0,0.2),
+        inset 0 2px 0 rgba(255,255,255,0.6),
+        inset 0 -2px 4px rgba(0,0,0,0.05);
+    }
+
+    .dpad-btn {
+      background: linear-gradient(180deg, #2a2a3e 0%, #1e1e30 100%);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+      transition: all 0.1s ease;
+    }
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: linear-gradient(180deg, #1e1e30 0%, #15152a 100%);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .dpad-center {
+      background: linear-gradient(145deg, #252540, #1c1c32);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+    }
+
+    .ps-btn {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #2a2a3e 0%, #1a1a2e 100%);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: all 0.1s ease;
+    }
+    .ps-btn:active, .ps-btn.pressed {
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .touchpad {
+      background: linear-gradient(180deg, #c8c8d0, #b8b8c2);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.15), 0 1px 0 rgba(255,255,255,0.5);
+    }
+
+    .trigger {
+      background: linear-gradient(180deg, #2a2a3e, #1e1e30);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: all 0.1s ease;
+    }
+    .trigger:active { box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 3px rgba(0,0,0,0.3); }
+
+    .led-bar {
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #0072ce, transparent);
+      box-shadow: 0 0 12px #0072ce, 0 0 30px rgba(0,114,206,0.3);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .led-bar.disconnected {
+      background: linear-gradient(90deg, transparent, #ef4444, transparent);
+      box-shadow: 0 0 12px #ef4444, 0 0 30px rgba(239,68,68,0.3);
+    }
+    .led-bar.connecting {
+      background: linear-gradient(90deg, transparent, #eab308, transparent);
+      box-shadow: 0 0 12px #eab308, 0 0 30px rgba(234,179,8,0.3);
+      animation: pulse-led 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-led { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .stick {
+      width: 64px; height: 64px;
+      background: radial-gradient(circle at 40% 35%, #3a3a50, #1e1e30);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.05);
+    }
+    .stick-well {
+      background: radial-gradient(circle, #15152a, #1c1c32);
+      box-shadow: inset 0 3px 8px rgba(0,0,0,0.5);
+    }
+
+    .speed-track {
+      -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px;
+      background: linear-gradient(90deg, #1e1e30, #2a2a3e);
+    }
+    .speed-track::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: linear-gradient(180deg, #0072ce, #005baa);
+      box-shadow: 0 2px 6px rgba(0,114,206,0.4);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-ps-dark min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
+
+  <!-- Status -->
+  <div class="mb-4 text-center">
+    <p id="status-text" class="text-xs font-semibold uppercase tracking-[0.25em] text-red-500">Disconnected</p>
+  </div>
+
+  <!-- Controller Body -->
+  <div id="controller" class="controller rounded-[40px] sm:rounded-[50px] w-[340px] sm:w-[420px] relative px-5 sm:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8 opacity-50 pointer-events-none transition-opacity duration-500">
+
+    <!-- LED Bar -->
+    <div id="led-bar" class="led-bar rounded-full mx-auto w-3/5 mb-4 disconnected"></div>
+
+    <!-- Triggers Row -->
+    <div class="flex justify-between mb-4 px-1">
+      <div class="trigger rounded-lg px-4 py-1.5 text-[10px] font-bold text-gray-400 tracking-wider">L2</div>
+      <div class="trigger rounded-lg px-4 py-1.5 text-[10px] font-bold text-gray-400 tracking-wider">R2</div>
+    </div>
+
+    <!-- Touchpad / Speed Control -->
+    <div class="touchpad rounded-xl mx-auto w-4/5 px-5 py-3 mb-5">
+      <div class="flex justify-between items-center mb-1.5">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-gray-500">Speed</span>
+        <span id="speed-val" class="text-xs font-extrabold text-ps-grip">220</span>
+      </div>
+      <input id="speed" type="range" min="50" max="255" value="220" class="speed-track w-full cursor-pointer">
+    </div>
+
+    <!-- Main Controls Area -->
+    <div class="flex justify-between items-start px-1 sm:px-2">
+
+      <!-- D-Pad (Left Side) -->
+      <div class="relative w-[120px] h-[120px] sm:w-[140px] sm:h-[140px]">
+        <!-- Center block -->
+        <div class="dpad-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-md z-0"></div>
+        <!-- Up -->
+        <button id="fwd" class="dpad-btn absolute top-0 left-1/2 -translate-x-1/2 w-10 h-12 sm:w-11 sm:h-14 rounded-t-xl flex items-center justify-center z-10">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+        </button>
+        <!-- Down -->
+        <button id="back" class="dpad-btn absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-12 sm:w-11 sm:h-14 rounded-b-xl flex items-center justify-center z-10">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <!-- Left -->
+        <button id="left" class="dpad-btn absolute left-0 top-1/2 -translate-y-1/2 h-10 w-12 sm:h-11 sm:w-14 rounded-l-xl flex items-center justify-center z-10">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <!-- Right -->
+        <button id="right" class="dpad-btn absolute right-0 top-1/2 -translate-y-1/2 h-10 w-12 sm:h-11 sm:w-14 rounded-r-xl flex items-center justify-center z-10">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <!-- Action Buttons (Right Side) -->
+      <div class="relative w-[120px] h-[120px] sm:w-[140px] sm:h-[140px]">
+        <!-- Triangle (Up) - Forward -->
+        <button id="fwd2" class="ps-btn absolute top-0 left-1/2 -translate-x-1/2 flex items-center justify-center">
+          <svg class="w-5 h-5 text-emerald-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/></svg>
+        </button>
+        <!-- Cross (Down) - Backward -->
+        <button id="back2" class="ps-btn absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-400/70" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <!-- Square (Left) - Left -->
+        <button id="left2" class="ps-btn absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center">
+          <svg class="w-4 h-4 text-pink-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/></svg>
+        </button>
+        <!-- Circle (Right) - Right -->
+        <button id="right2" class="ps-btn absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Analog Sticks (decorative) + Stop Button -->
+    <div class="flex justify-between items-center mt-4 px-4 sm:px-8">
+      <div class="stick-well w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-full flex items-center justify-center">
+        <div class="stick rounded-full"></div>
+      </div>
+
+      <!-- Stop / PS Button -->
+      <button id="stop" class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-300 to-gray-400 flex items-center justify-center shadow-lg hover:from-gray-200 hover:to-gray-300 transition-all border border-gray-200/50">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-b from-ps-grip to-ps-dark flex items-center justify-center">
+          <div class="w-2.5 h-2.5 rounded-sm bg-gray-400"></div>
+        </div>
+      </button>
+
+      <div class="stick-well w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-full flex items-center justify-center">
+        <div class="stick rounded-full"></div>
+      </div>
+    </div>
+
+    <!-- Active Command -->
+    <div id="active-cmd" class="text-center mt-3 text-[10px] font-bold uppercase tracking-[0.3em] text-ps-grip/50 h-4">&nbsp;</div>
+  </div>
+
+  <!-- Telemetry -->
+  <div id="telemetry" class="hidden mt-4 flex gap-6 text-[11px] text-gray-500 font-semibold">
+    <span id="tel-battery">--</span>
+    <span id="tel-rssi">--</span>
+  </div>
+
+  <!-- Hint -->
+  <p class="mt-5 text-[10px] text-gray-600 uppercase tracking-[0.2em]">D-Pad or Arrow Keys to drive</p>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const ledBar = document.getElementById('led-bar');
+    const statusText = document.getElementById('status-text');
+    const controller = document.getElementById('controller');
+    const activeCmd = document.getElementById('active-cmd');
+    const speedSlider = document.getElementById('speed');
+    const speedVal = document.getElementById('speed-val');
+    const telemetryPanel = document.getElementById('telemetry');
+    let connected = false;
+
+    let currentSpeed = 220;
+    speedSlider.addEventListener('input', () => {
+      currentSpeed = parseInt(speedSlider.value);
+      speedVal.textContent = currentSpeed;
+    });
+
+    socket.on('connect', () => {
+      connected = true;
+      ledBar.className = 'led-bar rounded-full mx-auto w-3/5 mb-4';
+      statusText.textContent = 'Connected';
+      statusText.className = 'text-xs font-semibold uppercase tracking-[0.25em] text-ps-accent';
+      controller.classList.remove('opacity-50', 'pointer-events-none');
+      controller.classList.add('opacity-100');
+      socket.emit('register', 'remote');
+    });
+
+    socket.on('disconnect', () => {
+      connected = false;
+      ledBar.className = 'led-bar rounded-full mx-auto w-3/5 mb-4 disconnected';
+      statusText.textContent = 'Disconnected';
+      statusText.className = 'text-xs font-semibold uppercase tracking-[0.25em] text-red-500';
+      controller.classList.add('opacity-50', 'pointer-events-none');
+      controller.classList.remove('opacity-100');
+      activeCmd.innerHTML = '&nbsp;';
+    });
+
+    socket.on('telemetry', (data) => {
+      telemetryPanel.classList.remove('hidden');
+      if (data.battery != null) document.getElementById('tel-battery').textContent = 'BAT ' + data.battery + '%';
+      if (data.rssi != null) document.getElementById('tel-rssi').textContent = 'RSSI ' + data.rssi + ' dBm';
+    });
+
+    const send = (action) => {
+      if (!connected) return;
+      socket.emit('command', { action, speed: currentSpeed });
+      activeCmd.textContent = action === 'stop' ? '' : action;
+      if (action === 'stop') activeCmd.innerHTML = '&nbsp;';
+    };
+
+    const bind = (id, action) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const start = (e) => { e.preventDefault(); send(action); el.classList.add('pressed'); };
+      const stop = (e) => { e.preventDefault(); send('stop'); el.classList.remove('pressed'); };
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup', stop);
+      el.addEventListener('mouseleave', stop);
+      el.addEventListener('touchstart', start);
+      el.addEventListener('touchend', stop);
+    };
+
+    bind('fwd', 'forward');   bind('fwd2', 'forward');
+    bind('back', 'backward'); bind('back2', 'backward');
+    bind('left', 'left');     bind('left2', 'left');
+    bind('right', 'right');   bind('right2', 'right');
+    document.getElementById('stop').onclick = () => send('stop');
+
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const map = { ArrowUp: 'forward', ArrowDown: 'backward', ArrowLeft: 'left', ArrowRight: 'right', ' ': 'stop' };
+      if (map[e.key]) { e.preventDefault(); send(map[e.key]); }
+    });
+    document.addEventListener('keyup', (e) => {
+      const dirs = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+      if (dirs.includes(e.key)) { e.preventDefault(); send('stop'); }
+    });
+  </script>
+</body>
+</html>
