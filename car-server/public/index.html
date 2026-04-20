@@ -106,89 +106,278 @@
       box-shadow: 0 2px 6px rgba(0,114,206,0.4);
       cursor: pointer;
     }
+
+    /* ===== MPU6050 Telemetry Display ===== */
+    .tel-screen {
+      background: linear-gradient(180deg, #0a1128 0%, #050816 100%);
+      border: 1px solid rgba(0, 114, 206, 0.25);
+      box-shadow:
+        0 10px 30px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(255,255,255,0.04),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .tel-screen.active {
+      border-color: rgba(0, 114, 206, 0.5);
+      box-shadow:
+        0 10px 30px rgba(0,114,206,0.2),
+        0 0 0 1px rgba(0,114,206,0.25),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .tel-screen.alert {
+      border-color: rgba(239, 68, 68, 0.6);
+      box-shadow:
+        0 10px 30px rgba(239, 68, 68, 0.25),
+        0 0 0 1px rgba(239, 68, 68, 0.3),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+      animation: alert-pulse 0.8s ease-in-out infinite;
+    }
+    @keyframes alert-pulse {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.6); }
+      50% { border-color: rgba(239, 68, 68, 1); }
+    }
+
+    /* Tilt bar: center origin, fills left or right based on value */
+    .tilt-bar-track {
+      position: relative;
+      height: 6px;
+      background: linear-gradient(90deg, rgba(239,68,68,0.15), rgba(255,255,255,0.05) 50%, rgba(239,68,68,0.15));
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .tilt-bar-track::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: -2px; bottom: -2px;
+      width: 1px;
+      background: rgba(255,255,255,0.3);
+    }
+    .tilt-bar-fill {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 50%;
+      width: 0;
+      background: linear-gradient(90deg, #0072ce, #38bdf8);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+      transition: width 0.1s ease, left 0.1s ease, background 0.15s ease;
+      border-radius: 2px;
+    }
+    .tilt-bar-fill.danger {
+      background: linear-gradient(90deg, #ef4444, #f87171);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+    }
+
+    /* G-force circular gauge */
+    .gforce-gauge {
+      position: relative;
+      width: 54px;
+      height: 54px;
+    }
+    .gforce-gauge svg {
+      transform: rotate(-90deg);
+    }
+    .gforce-gauge .bg-ring {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 4;
+    }
+    .gforce-gauge .fg-ring {
+      fill: none;
+      stroke: #38bdf8;
+      stroke-width: 4;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.5));
+      transition: stroke-dashoffset 0.1s ease, stroke 0.15s ease;
+    }
+    .gforce-gauge .fg-ring.danger {
+      stroke: #ef4444;
+      filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.7));
+    }
+    .gforce-value {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      text-shadow: 0 0 6px rgba(56, 189, 248, 0.4);
+    }
+    .gforce-value.danger { color: #fca5a5; text-shadow: 0 0 6px rgba(239, 68, 68, 0.5); }
+
+    .status-led {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #374151;
+      box-shadow: inset 0 0 2px rgba(0,0,0,0.5);
+    }
+    .status-led.on {
+      background: #10b981;
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+    }
+    .status-led.off {
+      background: #ef4444;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+    }
+
+    .emergency-banner {
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.15));
+      color: #fca5a5;
+      border-top: 1px solid rgba(239, 68, 68, 0.4);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+      animation: banner-flash 0.7s ease-in-out infinite;
+    }
+    @keyframes banner-flash {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
   </style>
 </head>
 <body class="bg-ps-dark min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
 
   <!-- Status -->
-  <div class="mb-4 text-center">
+  <div class="mb-3 text-center">
     <p id="status-text" class="text-xs font-semibold uppercase tracking-[0.25em] text-red-500">Disconnected</p>
+  </div>
+
+  <!-- MPU6050 Telemetry Screen -->
+  <div id="tel-screen" class="tel-screen rounded-2xl w-[340px] sm:w-[420px] mb-3 overflow-hidden">
+
+    <!-- Header: car status + RSSI -->
+    <div class="flex items-center justify-between px-4 py-2 border-b border-white/5">
+      <div class="flex items-center gap-2">
+        <span class="text-[9px] font-bold uppercase tracking-[0.25em] text-cyan-400/80">Telemetry</span>
+        <span id="tel-car-led" class="status-led" title="Car status"></span>
+        <span id="tel-car-label" class="text-[9px] font-semibold uppercase tracking-wider text-gray-500">Offline</span>
+      </div>
+      <div class="flex items-center gap-2 text-[9px] text-gray-500 font-medium tracking-wider uppercase">
+        <span id="tel-rssi-mini">-- dBm</span>
+      </div>
+    </div>
+
+    <!-- Emergency banner (hidden by default) -->
+    <div id="emergency-banner" class="hidden emergency-banner text-center text-[10px] font-black uppercase tracking-[0.3em] py-1.5">
+      ⚠ Emergency Stop
+    </div>
+
+    <!-- Main readings: pitch, roll, g-force -->
+    <div class="px-4 py-3 flex gap-4 items-center">
+      <!-- Pitch & Roll column -->
+      <div class="flex-1 space-y-2.5">
+        <!-- Pitch -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500">Pitch</span>
+            <span id="tel-pitch-val" class="text-[11px] font-extrabold text-cyan-300 tabular-nums">0.0°</span>
+          </div>
+          <div class="tilt-bar-track">
+            <div id="tel-pitch-bar" class="tilt-bar-fill"></div>
+          </div>
+        </div>
+        <!-- Roll -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500">Roll</span>
+            <span id="tel-roll-val" class="text-[11px] font-extrabold text-cyan-300 tabular-nums">0.0°</span>
+          </div>
+          <div class="tilt-bar-track">
+            <div id="tel-roll-bar" class="tilt-bar-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- G-force gauge -->
+      <div class="flex flex-col items-center">
+        <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500 mb-1">G-Force</span>
+        <div class="gforce-gauge">
+          <svg width="54" height="54" viewBox="0 0 54 54">
+            <circle class="bg-ring" cx="27" cy="27" r="22"/>
+            <circle id="tel-gforce-ring" class="fg-ring" cx="27" cy="27" r="22"
+                    stroke-dasharray="138.23" stroke-dashoffset="138.23"/>
+          </svg>
+          <div id="tel-gforce-val" class="gforce-value">1.0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom stats row -->
+    <div class="grid grid-cols-3 gap-2 px-4 py-2 border-t border-white/5 text-center">
+      <div>
+        <div class="text-[8px] font-bold uppercase tracking-wider text-gray-600">Motor</div>
+        <div id="tel-motor-speed" class="text-[11px] font-extrabold text-cyan-300 tabular-nums mt-0.5">0</div>
+      </div>
+      <div>
+        <div class="text-[8px] font-bold uppercase tracking-wider text-gray-600">Slope</div>
+        <div id="tel-slope" class="text-[11px] font-extrabold text-cyan-300 tabular-nums mt-0.5">Flat</div>
+      </div>
+      <div>
+        <div class="text-[8px] font-bold uppercase tracking-wider text-gray-600">Status</div>
+        <div id="tel-status" class="text-[11px] font-extrabold text-emerald-400 mt-0.5">Idle</div>
+      </div>
+    </div>
   </div>
 
   <!-- Controller Body -->
   <div id="controller" class="controller rounded-[40px] sm:rounded-[50px] w-[340px] sm:w-[420px] relative px-5 sm:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8 opacity-50 pointer-events-none transition-opacity duration-500">
 
-    <!-- LED Bar -->
     <div id="led-bar" class="led-bar rounded-full mx-auto w-3/5 mb-4 disconnected"></div>
 
-    <!-- Triggers Row -->
     <div class="flex justify-between mb-4 px-1">
       <div class="trigger rounded-lg px-4 py-1.5 text-[10px] font-bold text-gray-400 tracking-wider">L2</div>
       <div class="trigger rounded-lg px-4 py-1.5 text-[10px] font-bold text-gray-400 tracking-wider">R2</div>
     </div>
 
-    <!-- Touchpad / Speed Control -->
     <div class="touchpad rounded-xl mx-auto w-4/5 px-5 py-3 mb-5">
       <div class="flex justify-between items-center mb-1.5">
         <span class="text-[10px] font-bold uppercase tracking-widest text-gray-500">Speed</span>
-        <span id="speed-val" class="text-xs font-extrabold text-ps-grip">220</span>
+        <span id="speed-val" class="text-xs font-extrabold text-ps-grip">200</span>
       </div>
-      <input id="speed" type="range" min="50" max="255" value="220" class="speed-track w-full cursor-pointer">
+      <input id="speed" type="range" min="50" max="250" value="200" class="speed-track w-full cursor-pointer">
     </div>
 
-    <!-- Main Controls Area -->
     <div class="flex justify-between items-start px-1 sm:px-2">
 
-      <!-- D-Pad (Left Side) -->
+      <!-- D-Pad -->
       <div class="relative w-[120px] h-[120px] sm:w-[140px] sm:h-[140px]">
-        <!-- Center block -->
         <div class="dpad-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-md z-0"></div>
-        <!-- Up -->
         <button id="fwd" class="dpad-btn absolute top-0 left-1/2 -translate-x-1/2 w-10 h-12 sm:w-11 sm:h-14 rounded-t-xl flex items-center justify-center z-10">
           <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
         </button>
-        <!-- Down -->
         <button id="back" class="dpad-btn absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-12 sm:w-11 sm:h-14 rounded-b-xl flex items-center justify-center z-10">
           <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
-        <!-- Left -->
         <button id="left" class="dpad-btn absolute left-0 top-1/2 -translate-y-1/2 h-10 w-12 sm:h-11 sm:w-14 rounded-l-xl flex items-center justify-center z-10">
           <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <!-- Right -->
         <button id="right" class="dpad-btn absolute right-0 top-1/2 -translate-y-1/2 h-10 w-12 sm:h-11 sm:w-14 rounded-r-xl flex items-center justify-center z-10">
           <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
 
-      <!-- Action Buttons (Right Side) -->
+      <!-- Action Buttons -->
       <div class="relative w-[120px] h-[120px] sm:w-[140px] sm:h-[140px]">
-        <!-- Triangle (Up) - Forward -->
         <button id="fwd2" class="ps-btn absolute top-0 left-1/2 -translate-x-1/2 flex items-center justify-center">
           <svg class="w-5 h-5 text-emerald-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/></svg>
         </button>
-        <!-- Cross (Down) - Backward -->
         <button id="back2" class="ps-btn absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center justify-center">
           <svg class="w-5 h-5 text-blue-400/70" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
-        <!-- Square (Left) - Left -->
         <button id="left2" class="ps-btn absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center">
           <svg class="w-4 h-4 text-pink-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/></svg>
         </button>
-        <!-- Circle (Right) - Right -->
         <button id="right2" class="ps-btn absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center">
           <svg class="w-5 h-5 text-red-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
         </button>
       </div>
     </div>
 
-    <!-- Analog Sticks (decorative) + Stop Button -->
     <div class="flex justify-between items-center mt-4 px-4 sm:px-8">
       <div class="stick-well w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-full flex items-center justify-center">
         <div class="stick rounded-full"></div>
       </div>
 
-      <!-- Stop / PS Button -->
       <button id="stop" class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-300 to-gray-400 flex items-center justify-center shadow-lg hover:from-gray-200 hover:to-gray-300 transition-all border border-gray-200/50">
         <div class="w-8 h-8 rounded-full bg-gradient-to-b from-ps-grip to-ps-dark flex items-center justify-center">
           <div class="w-2.5 h-2.5 rounded-sm bg-gray-400"></div>
@@ -200,17 +389,9 @@
       </div>
     </div>
 
-    <!-- Active Command -->
     <div id="active-cmd" class="text-center mt-3 text-[10px] font-bold uppercase tracking-[0.3em] text-ps-grip/50 h-4">&nbsp;</div>
   </div>
 
-  <!-- Telemetry -->
-  <div id="telemetry" class="hidden mt-4 flex gap-6 text-[11px] text-gray-500 font-semibold">
-    <span id="tel-battery">--</span>
-    <span id="tel-rssi">--</span>
-  </div>
-
-  <!-- Hint -->
   <p class="mt-5 text-[10px] text-gray-600 uppercase tracking-[0.2em]">D-Pad or Arrow Keys to drive</p>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -222,10 +403,28 @@
     const activeCmd = document.getElementById('active-cmd');
     const speedSlider = document.getElementById('speed');
     const speedVal = document.getElementById('speed-val');
-    const telemetryPanel = document.getElementById('telemetry');
-    let connected = false;
 
-    let currentSpeed = 220;
+    // Telemetry elements
+    const telScreen = document.getElementById('tel-screen');
+    const telCarLed = document.getElementById('tel-car-led');
+    const telCarLabel = document.getElementById('tel-car-label');
+    const telRssiMini = document.getElementById('tel-rssi-mini');
+    const telPitchVal = document.getElementById('tel-pitch-val');
+    const telRollVal = document.getElementById('tel-roll-val');
+    const telPitchBar = document.getElementById('tel-pitch-bar');
+    const telRollBar = document.getElementById('tel-roll-bar');
+    const telGforceVal = document.getElementById('tel-gforce-val');
+    const telGforceRing = document.getElementById('tel-gforce-ring');
+    const telMotorSpeed = document.getElementById('tel-motor-speed');
+    const telSlope = document.getElementById('tel-slope');
+    const telStatus = document.getElementById('tel-status');
+    const emergencyBanner = document.getElementById('emergency-banner');
+
+    let connected = false;
+    let carOnline = false;
+    let lastTelemetryAt = 0;
+
+    let currentSpeed = 200;
     speedSlider.addEventListener('input', () => {
       currentSpeed = parseInt(speedSlider.value);
       speedVal.textContent = currentSpeed;
@@ -243,19 +442,127 @@
 
     socket.on('disconnect', () => {
       connected = false;
+      carOnline = false;
       ledBar.className = 'led-bar rounded-full mx-auto w-3/5 mb-4 disconnected';
       statusText.textContent = 'Disconnected';
       statusText.className = 'text-xs font-semibold uppercase tracking-[0.25em] text-red-500';
       controller.classList.add('opacity-50', 'pointer-events-none');
       controller.classList.remove('opacity-100');
       activeCmd.innerHTML = '&nbsp;';
+      updateCarOnlineUi();
     });
 
-    socket.on('telemetry', (data) => {
-      telemetryPanel.classList.remove('hidden');
-      if (data.battery != null) document.getElementById('tel-battery').textContent = 'BAT ' + data.battery + '%';
-      if (data.rssi != null) document.getElementById('tel-rssi').textContent = 'RSSI ' + data.rssi + ' dBm';
+    // Car online/offline indicator (server emits 'car_status')
+    socket.on('car_status', (status) => {
+      carOnline = status === 'online';
+      updateCarOnlineUi();
     });
+
+    function updateCarOnlineUi() {
+      if (carOnline) {
+        telCarLed.className = 'status-led on';
+        telCarLabel.textContent = 'Online';
+        telCarLabel.className = 'text-[9px] font-semibold uppercase tracking-wider text-emerald-400';
+        telScreen.classList.add('active');
+      } else {
+        telCarLed.className = 'status-led off';
+        telCarLabel.textContent = 'Offline';
+        telCarLabel.className = 'text-[9px] font-semibold uppercase tracking-wider text-red-400';
+        telScreen.classList.remove('active', 'alert');
+        resetTelemetry();
+      }
+    }
+
+    function resetTelemetry() {
+      telPitchVal.textContent = '0.0°';
+      telRollVal.textContent = '0.0°';
+      telPitchBar.style.width = '0%';
+      telPitchBar.classList.remove('danger');
+      telRollBar.style.width = '0%';
+      telRollBar.classList.remove('danger');
+      telGforceVal.textContent = '1.0';
+      telGforceVal.classList.remove('danger');
+      telGforceRing.setAttribute('stroke-dashoffset', '138.23');
+      telGforceRing.classList.remove('danger');
+      telMotorSpeed.textContent = '0';
+      telSlope.textContent = 'Flat';
+      telStatus.textContent = 'Idle';
+      telStatus.className = 'text-[11px] font-extrabold text-emerald-400 mt-0.5';
+      telRssiMini.textContent = '-- dBm';
+      emergencyBanner.classList.add('hidden');
+    }
+
+    socket.on('telemetry', (data) => {
+      lastTelemetryAt = Date.now();
+
+      // Any telemetry means car is online
+      if (!carOnline) { carOnline = true; updateCarOnlineUi(); }
+
+      const pitch = typeof data.pitch === 'number' ? data.pitch : 0;
+      const roll = typeof data.roll === 'number' ? data.roll : 0;
+      const accel = typeof data.accel === 'number' ? data.accel : 1.0;
+      const speed = typeof data.speed === 'number' ? data.speed : 0;
+      const emergency = !!data.emergency;
+      const rssi = typeof data.rssi === 'number' ? data.rssi : null;
+
+      // Pitch bar — clamp to ±45° for visual
+      const pitchClamped = Math.max(-45, Math.min(45, pitch));
+      const pitchPct = Math.abs(pitchClamped) / 45 * 50;
+      telPitchVal.textContent = pitch.toFixed(1) + '°';
+      telPitchBar.style.width = pitchPct + '%';
+      telPitchBar.style.left = pitchClamped >= 0 ? '50%' : (50 - pitchPct) + '%';
+      telPitchBar.classList.toggle('danger', Math.abs(pitch) > 30);
+
+      // Roll bar
+      const rollClamped = Math.max(-45, Math.min(45, roll));
+      const rollPct = Math.abs(rollClamped) / 45 * 50;
+      telRollVal.textContent = roll.toFixed(1) + '°';
+      telRollBar.style.width = rollPct + '%';
+      telRollBar.style.left = rollClamped >= 0 ? '50%' : (50 - rollPct) + '%';
+      telRollBar.classList.toggle('danger', Math.abs(roll) > 30);
+
+      // G-force (circumference = 2π·22 ≈ 138.23)
+      const CIRC = 138.23;
+      const gClamped = Math.max(0, Math.min(3, accel));
+      const offset = CIRC - (gClamped / 3) * CIRC;
+      telGforceVal.textContent = accel.toFixed(2);
+      telGforceRing.setAttribute('stroke-dashoffset', String(offset));
+      const gDanger = accel > 2.0;
+      telGforceRing.classList.toggle('danger', gDanger);
+      telGforceVal.classList.toggle('danger', gDanger);
+
+      telMotorSpeed.textContent = speed;
+
+      if (pitch > 10) telSlope.textContent = 'Up ↑';
+      else if (pitch < -10) telSlope.textContent = 'Down ↓';
+      else telSlope.textContent = 'Flat';
+
+      if (emergency) {
+        telStatus.textContent = 'EMERGENCY';
+        telStatus.className = 'text-[11px] font-extrabold text-red-400 mt-0.5';
+        emergencyBanner.classList.remove('hidden');
+        telScreen.classList.add('alert');
+        telScreen.classList.remove('active');
+      } else {
+        telStatus.textContent = speed > 0 ? 'Active' : 'Idle';
+        telStatus.className = 'text-[11px] font-extrabold text-emerald-400 mt-0.5';
+        emergencyBanner.classList.add('hidden');
+        telScreen.classList.remove('alert');
+        telScreen.classList.add('active');
+      }
+
+      if (rssi !== null) {
+        telRssiMini.textContent = rssi + ' dBm';
+      }
+    });
+
+    // Poll for stale telemetry
+    setInterval(() => {
+      if (carOnline && lastTelemetryAt && Date.now() - lastTelemetryAt > 5000) {
+        carOnline = false;
+        updateCarOnlineUi();
+      }
+    }, 1000);
 
     const send = (action) => {
       if (!connected) return;
